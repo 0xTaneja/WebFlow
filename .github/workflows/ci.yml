@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint -- --filter=...
+
+      - name: Type-check
+        run: npm run check-types -- --filter=...
+
+      - name: Build packages/apps
+        run: npm run build -- --filter=...
+
+      - name: Run tests (if test script exists)
+        run: |
+          if npm run | grep -q "test"; then
+            npm run test -- --filter=...
+          else
+            echo "No test script defined—skipping";
+          fi

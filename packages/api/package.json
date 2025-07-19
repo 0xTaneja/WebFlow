@@ -1,0 +1,11 @@
+{
+    "name":"@repo/api",
+    "version":"0.0.0",
+    "main":"dist/index.js",
+    "types":"dist/index.d.ts",
+    "private":true,
+    "files":["dist"],
+    "scripts":{
+        "build":"tsc -b"
+    }
+}

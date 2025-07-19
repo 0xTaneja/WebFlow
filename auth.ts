@@ -1,0 +1,1 @@
+export { auth } from "./apps/web/app/lib/auth";

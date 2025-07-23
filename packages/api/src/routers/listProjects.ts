@@ -7,6 +7,7 @@ export const listProjectsRouter = router({
       .query(({ ctx }) =>
         ctx.prisma.project.findMany({
           where: {
+            deletedAt: null,
             members: { some: { userId: ctx.user.id } },
           },
           orderBy: { createdAt: 'asc' },

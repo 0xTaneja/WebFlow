@@ -5,6 +5,7 @@ import { createProjectRouter } from "./routers/createProject";
 import { listProjectsRouter } from "./routers/listProjects";
 import { deleteProjectRouter } from "./routers/projectAction";
 import { renameProjectRouter } from "./routers/projectAction";
-export const appRouter = mergeRouters(exampleRouter, whoAmIRouter,createProjectRouter,listProjectsRouter,deleteProjectRouter,renameProjectRouter);
+import { inviteCollaboratorRouter } from "./routers/inviteCollaborator";
+export const appRouter = mergeRouters(exampleRouter, whoAmIRouter,createProjectRouter,listProjectsRouter,deleteProjectRouter,renameProjectRouter,inviteCollaboratorRouter);
 
 export type AppRouter = typeof appRouter;

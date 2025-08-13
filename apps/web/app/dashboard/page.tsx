@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { Textarea } from "@/components/ui/textarea"
 import {
   SidebarProvider,
@@ -71,6 +72,7 @@ import { type Site, SORTS, type SortKey } from "../../types/site"
 import { trpc } from "@/lib/trpc-client"
 
 export default function Dashboard() {
+  const router = useRouter()
   const [query, setQuery] = React.useState("")
   const [sort, setSort] = React.useState<SortKey>("Date created")
   const [view, setView] = React.useState<"grid" | "list">("grid")
@@ -190,6 +192,10 @@ export default function Dashboard() {
   }
 
   // Define all components inline to avoid import issues
+  function openDesigner(projectId: string) {
+    router.push(`/dashboard/projects/${projectId}`)
+  }
+
   function SiteActions({ site }: { site: Site }) {
     return (
       <DropdownMenu>
@@ -200,8 +206,8 @@ export default function Dashboard() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem>Open designer</DropdownMenuItem>
-          <DropdownMenuItem>Open site</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openDesigner(site.id)}>Open designer</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openDesigner(site.id)}>Open site</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => {
@@ -295,7 +301,7 @@ export default function Dashboard() {
               />
               {/* Hover overlay with "Open in Webflow" */}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                <Button size="sm" className="bg-white text-black hover:bg-gray-100">
+                <Button size="sm" className="bg-white text-black hover:bg-gray-100" onClick={() => openDesigner(site.id)}>
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open in Webflow
                 </Button>
@@ -304,7 +310,7 @@ export default function Dashboard() {
           </div>
         </CardContent>
         <CardFooter className="flex items-center justify-between pt-0">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => openDesigner(site.id)}>
             <ExternalLink className="mr-2 h-4 w-4" />
             View site
           </Button>

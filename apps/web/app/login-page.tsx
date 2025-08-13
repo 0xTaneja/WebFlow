@@ -1,7 +1,37 @@
+'use client'
+
 import Link from "next/link"
 import { ArrowRight, Eye } from "lucide-react"
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { authClient } from "./lib/auth-client";
 
 export default function LoginPage() {
+  
+  const router = useRouter();
+  const [email,setEmail] = useState('');
+  const [password,setPassword] = useState('');
+  const [error,setError] = useState<string | null>(null);
+  const [loading,setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const { error } = await authClient.signIn.email(
+      {
+        email,
+        password,
+        callbackURL: '/dashboard',
+      },
+      {
+        onError: (ctx) => setError(ctx.error.message),
+      },
+    );
+    setLoading(false);
+    if (!error) router.push('/dashboard');
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Single Card with Geometric Background */}
@@ -99,10 +129,12 @@ export default function LoginPage() {
           </div>
 
           {/* Login form */}
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <input
                 type="email"
+                value={email}
+                onChange={(e)=>setEmail(e.target.value)}
                 placeholder="Email address or username"
                 className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                 required
@@ -113,9 +145,12 @@ export default function LoginPage() {
               <input
                 type="password"
                 placeholder="Password"
+                value={password}
+                onChange={(e)=>setPassword(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500 pr-10"
                 required
               />
+             
               <button type="button" className="absolute inset-y-0 right-0 pr-3 flex items-center">
                 <Eye className="h-4 w-4 text-gray-400" />
               </button>
@@ -126,12 +161,13 @@ export default function LoginPage() {
                 Forgot your password?
               </Link>
             </div>
-
+            {error && <p className="text-red-600 text-sm">{error}</p>}
             <button
               type="submit"
+              disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-md font-medium transition-colors"
             >
-              Continue
+              {loading ? 'Logging in...' : 'Continue'}
             </button>
           </form>
 

@@ -1,7 +1,38 @@
+'use client'
 import Link from "next/link"
 import { Building2, ArrowRight } from "lucide-react"
+import { useRouter } from "next/navigation"
+import React, { useState } from "react";
+import { auth } from "./lib/auth";
+import { authClient } from "./lib/auth-client";
 
 export default function SignupPage() {
+  const router = useRouter();
+  const [email,setEmail] = useState('');
+  const [password,setPassword] = useState('');
+  const [name,setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const { error } = await authClient.signUp.email(
+      {
+        email,
+        password,
+        name,
+        callbackURL: '/dashboard',
+      },
+      {
+        onError: (ctx) => setError(ctx.error.message),
+      },
+    );
+    setLoading(false);
+    if (!error) router.push('/dashboard');
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Single Card with Geometric Background */}
@@ -116,21 +147,42 @@ export default function SignupPage() {
           </div>
 
           {/* Signup form */}
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <input
-                type="email"
-                placeholder="Work email address"
+               <input
+                type="name"
+                value={name}
+                onChange={(e)=>setName(e.target.value)}
+                placeholder="Name"
                 className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                 required
               />
+              <input
+                type="email"
+                value={email}
+                onChange={(e)=>setEmail(e.target.value)}
+                placeholder="Work email address"
+                className="w-full mt-4 px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                required
+              />
+              
+              <input
+                type="password"
+                value={password}
+                onChange={(e)=>setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full mt-4 px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                required
+              />
+            
             </div>
-
+            {error && <p className="text-red-600 text-sm">{error}</p>}
             <button
               type="submit"
+              disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-md font-medium transition-colors"
-            >
-              Continue
+            > 
+              {loading ? 'Signing up...' : 'Continue'}
             </button>
           </form>
 

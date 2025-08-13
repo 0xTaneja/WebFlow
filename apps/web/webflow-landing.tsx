@@ -53,14 +53,14 @@ export default function Component() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <Link href="#" className="text-sm font-medium text-gray-700 hover:text-blue-600">
+              <Link href="/login" className="text-sm font-medium text-gray-700 hover:text-blue-600">
                 Log in
               </Link>
               <Link href="#" className="text-sm font-medium text-gray-700 hover:text-blue-600">
                 Contact sales
               </Link>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm">
-                Get started — it's free
+              <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm">
+                <Link href="/signup">Get started — it's free</Link>
               </Button>
             </div>
           </div>
@@ -84,8 +84,8 @@ export default function Component() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-base">
-              Start building
+            <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-base">
+              <Link href="/signup">Start building</Link>
             </Button>
             <Button size="lg" variant="ghost" className="text-gray-900 hover:text-blue-600 px-8 py-3 text-base">
               Contact sales <ArrowRight className="ml-2 h-4 w-4" />

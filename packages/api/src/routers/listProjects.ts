@@ -11,7 +11,7 @@ export const listProjectsRouter = router({
             members: { some: { userId: ctx.user.id } },
           },
           orderBy: { createdAt: 'asc' },
-          select: { id: true, name: true },
+          select: { id: true, name: true, createdAt: true },
         })
       ),
   });

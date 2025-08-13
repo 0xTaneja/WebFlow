@@ -9,6 +9,11 @@ export const projectInput = z.object({
     name: z.string(),
 })
 
+// For endpoints that only require the project id
+export const projectIdOnlyInput = z.object({
+    projectId: z.string(),
+})
+
 export const inviteInput = z.object({
     projectId: z.string(),
     email: z.string().email(),
@@ -16,4 +21,9 @@ export const inviteInput = z.object({
 
 export const acceptInviteInput = z.object({
     inviteId: z.string(),
+})
+
+export const pageInput = z.object({
+    pageId: z.string(),
+    canvasJson:z.any()
 })

@@ -3,10 +3,12 @@
 import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
 import { trpc } from "@/lib/trpc-client"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Loader2, Plus } from "lucide-react"
-import StudioEditor from "@grapesjs/studio-sdk/react"
 import "@grapesjs/studio-sdk/style"
+// Use dynamic import to disable SSR for Studio editor to avoid hydration/timing issues
+const Studio = dynamic(() => import("@grapesjs/studio-sdk/react"), { ssr: false })
 
 type CanvasElement =
   | {
@@ -41,6 +43,30 @@ function uid(prefix = "el"): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+function normalizeProjectData(data: any): any | null {
+  if (!data || typeof data !== "object") return null
+  // Studio project with frames
+  if (Array.isArray((data as any).pages)) {
+    const pages = (data as any).pages
+      .map((p: any) => {
+        if (Array.isArray(p?.frames) && p.frames.length > 0 && typeof p.frames[0]?.component === "string") {
+          return p
+        }
+        if (typeof p?.component === "string") {
+          return { ...p, frames: [{ component: p.component }] }
+        }
+        return null
+      })
+      .filter(Boolean)
+    if (pages.length > 0) return { ...data, pages }
+  }
+  // Legacy { html, css }
+  if (typeof (data as any).html === "string") {
+    return { pages: [{ name: "Home", frames: [{ component: (data as any).html }] }] }
+  }
+  return null
+}
+
 export default function DesignerPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
@@ -50,9 +76,6 @@ export default function DesignerPage() {
   const [saving, setSaving] = React.useState<"idle" | "saving" | "saved">("idle")
   const editorRef = React.useRef<any>(null)
   const activePageIdRef = React.useRef<string | null>(null)
-  const editorReadyRef = React.useRef<boolean>(false)
-  const loadedOnceRef = React.useRef<boolean>(false)
-  // No manual ref container; we use the React wrapper
 
   // Load pages for this project
   const pagesQuery = trpc.getPages.useQuery(
@@ -86,39 +109,21 @@ export default function DesignerPage() {
     activePageIdRef.current = activePageId
   }, [activePageId])
 
-  // Helpers to validate and migrate project data into Studio format
-  const isStudioProject = React.useCallback((data: any) => {
-    return !!(
-      data &&
-      typeof data === "object" &&
-      Array.isArray((data as any).pages) &&
-      (data as any).pages.every((pg: any) => Array.isArray(pg?.frames))
-    )
-  }, [])
-
-  const migrateLegacyData = React.useCallback((data: any) => {
-    if (!data) return null
-    if (isStudioProject(data)) return data
-    if ((data as any).html) {
-      return {
-        pages: [
-          {
-            name: "Home",
-            frames: [{ component: (data as any).html }],
-          },
-        ],
+  // When active page changes, (re)load project data into the editor
+  React.useEffect(() => {
+    const editor = editorRef.current
+    const pages = pagesQuery.data
+    if (!editor || !pages || !activePageId) return
+    const p = pages.find((x: any) => x.id === activePageId)
+    if (!p) return
+    const data = (p.canvasJson as any) ?? null
+    const normalized = normalizeProjectData(data)
+    try {
+      if (normalized && typeof editor.loadProjectData === "function") {
+        editor.loadProjectData(normalized)
       }
-    }
-    return null
-  }, [isStudioProject])
-
-  const DEFAULT_PROJECT = React.useMemo(
-    () => ({ pages: [{ name: "Home", frames: [{ component: "<h1>Home page</h1>" }] }] }),
-    []
-  )
-
-  // Default project used only when there is no DB data yet
-  const defaultProjectForEditor = DEFAULT_PROJECT
+    } catch {}
+  }, [activePageId, pagesQuery.data])
 
   // Auto-create a default page if none exist
   React.useEffect(() => {
@@ -141,8 +146,6 @@ export default function DesignerPage() {
       }, 600)
     }
   }, [updateCanvas])
-
-  // No manual init; React wrapper handles mounting
 
   // Studio handles keyboard interactions; no custom handlers needed
 
@@ -167,7 +170,7 @@ export default function DesignerPage() {
   const active = pages.find((p) => p.id === activePageId)
 
   return (
-    <div className="flex h-[100svh] flex-col">
+    <div className="flex h-[calc(100svh-4rem)] flex-col">
       {/* Top bar */}
       <div className="border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center gap-3 px-4 py-2">
@@ -214,40 +217,34 @@ export default function DesignerPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-0 flex flex-col">
-        {/* Studio React renders the full editor (left blocks, center canvas, right panels) */}
-        <div className="bg-white h-full">
-          <StudioEditor
-            className="h-full w-full"
-            key={activePageId ?? 'studio'}
-            onEditor={(editor: any) => {
-              editorRef.current = editor
-              editorReadyRef.current = false
-              loadedOnceRef.current = false
-              // Autosave only on project:store per docs
-              editor.on?.("project:store", (data: any) => scheduleSaveData(data))
-              // Load DB project once editor is ready; keep defaults otherwise
-              const handleReady = () => {
-                if (loadedOnceRef.current) return
-                editorReadyRef.current = true
-                const pages = pagesQuery.data
-                const p = pages?.find((x: any) => x.id === activePageIdRef.current)
-                const raw = p?.canvasJson
-                const projectData = migrateLegacyData(raw)
-                if (projectData && isStudioProject(projectData)) {
-                  try { editor.loadProjectData?.(projectData); loadedOnceRef.current = true } catch {}
-                } else {
-                  // keep defaults
-                  loadedOnceRef.current = true
-                }
+      <div className="flex-1 p-4">
+        {/* Studio Editor React: renders left editor, center canvas, right panels */}
+        <div className="rounded-md border bg-white min-h-[70vh]">
+          <Studio
+            className="h-[70vh]"
+            key={String(activePageId || projectId)}
+            onReady={(ed: any) => {
+              editorRef.current = ed
+              // Autosave when project is stored by Studio
+              ed.on?.("project:store", (data: any) => scheduleSaveData(data))
+              // Load initial data for the active page, if present
+              const p = pagesQuery.data?.find((x: any) => x.id === activePageIdRef.current)
+              const savedData = p?.canvasJson ?? null
+              const normalized = normalizeProjectData(savedData)
+              if (normalized) {
+                try { ed.loadProjectData?.(normalized) } catch {}
               }
-              editor.on?.('ready', handleReady)
-              editor.on?.('load', handleReady)
             }}
             options={{
+              licenseKey: '',
               project: {
-                type: "web",
-                default: defaultProjectForEditor,
+                default: {
+                  pages: [
+                    { name: 'Home', component: '<h1>Home page</h1>' },
+                    { name: 'About', component: '<h1>About page</h1>' },
+                    { name: 'Contact', component: '<h1>Contact page</h1>' },
+                  ],
+                },
               },
             }}
           />

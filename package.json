@@ -23,7 +23,9 @@
     "packages/*"
   ],
   "dependencies": {
-    "@grapesjs/studio-sdk": "1.0.52",
+    "@craftjs/core": "^0.2.12",
+    "@grapesjs/studio-sdk": "^1.0.52",
+    "@grapesjs/studio-sdk-plugins": "^1.0.28",
     "@nanostores/react": "^1.0.0",
     "@prisma/client": "^6.11.1",
     "@radix-ui/react-dialog": "^1.1.14",

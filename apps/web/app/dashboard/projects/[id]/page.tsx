@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Plus } from "lucide-react";
 import StudioEditorRaw from "@grapesjs/studio-sdk/react";
 import "@grapesjs/studio-sdk/style";
-import { flexComponent, canvasFullSize, canvasGridMode, rteProseMirror, tableComponent, swiperComponent, canvasEmptyState, iconifyComponent, accordionComponent, listPagesComponent, fsLightboxComponent, layoutSidebarButtons, youtubeAssetProvider, lightGalleryComponent } from '@grapesjs/studio-sdk-plugins';
+import { flexComponent, canvasFullSize, canvasGridMode, canvasEmptyState,rteProseMirror, tableComponent, swiperComponent, iconifyComponent, accordionComponent, listPagesComponent, fsLightboxComponent, layoutSidebarButtons, youtubeAssetProvider, lightGalleryComponent } from '@grapesjs/studio-sdk-plugins';
 import type { SVGProps } from "react";
 import type { FC } from "react";
 const LoaderIcon = Loader2 as unknown as React.FC<SVGProps<SVGSVGElement>>;
@@ -23,15 +23,12 @@ export default function DesignerPage() {
   const [saving, setSaving] = React.useState<"idle" | "saving" | "saved">("idle");
   const editorRef = React.useRef<any>(null);
   const activePageIdRef = React.useRef<string | null>(null);
-
   // tRPC hooks
   const pagesQuery = trpc.getPages.useQuery(
     { projectId: projectId! },
     { enabled: Boolean(projectId) }
   );
-  const createPage = trpc.createPage.useMutation({
-    onSuccess: () => pagesQuery.refetch(),
-  });
+  // Page creation handled inside GrapesJS via listPages plugin; no external button
   const updateCanvas = trpc.updateCanvasJson.useMutation({
     onSuccess: () => {
       setSaving("saved");
@@ -54,17 +51,33 @@ export default function DesignerPage() {
     activePageIdRef.current = activePageId;
   }, [activePageId]);
 
-  const scheduleSaveData = React.useMemo(() => {
-    let t: any;
-    return (data: any) => {
-      if (!activePageIdRef.current) return;
-      setSaving("saving");
-      clearTimeout(t);
-      t = setTimeout(() => {
-        updateCanvas.mutate({ pageId: activePageIdRef.current!, canvasJson: data ?? {} });
-      }, 800);
-    };
-  }, [updateCanvas]);
+  // // Load project data into editor when page changes
+  // React.useEffect(() => {
+  //   const ed = editorRef.current;
+  //   if (!ed || !activePageId) return;
+  //   const p = pagesQuery.data?.find((x: any) => x.id === activePageId);
+  //   const raw = p?.canvasJson ?? null;
+  //   if (raw && typeof raw === 'object' && Array.isArray((raw as any).pages) && (raw as any).pages.length === 0) {
+  //     // empty => reset editor with blank project structure
+  //     ed.loadProjectData?.(BLANK_PROJECT);
+  //     return;
+  //   }
+  //   let data: any = raw as any;
+  //   if (raw && typeof raw === 'object' && Array.isArray((raw as any).pages)) {
+  //     const r: any = raw as any;
+  //     data = {
+  //       ...r,
+  //       pages: r.pages.map((pg: any) => {
+  //         if (Array.isArray(pg.frames)) return pg;
+  //         if (typeof pg.component === 'string') return { ...pg, frames: [{ component: pg.component }] };
+  //         return pg;
+  //       }),
+  //     };
+  //   }
+  //   try {
+  //     ed.loadProjectData?.(data);
+  //   } catch {}
+  // }, [activePageId, pagesQuery.data]);
 
   const pages = (pagesQuery.data as any[]) || [];
 
@@ -79,33 +92,12 @@ export default function DesignerPage() {
             <span className="text-sm font-medium">{projectId}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            {pagesQuery.isLoading ? (
+            {pagesQuery.isLoading && (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <LoaderIcon className="h-3.5 w-3.5 animate-spin" /> Loading pages…
+                <LoaderIcon className="h-3.5 w-3.5 animate-spin" /> Loading…
               </span>
-            ) : (
-              <div className="flex items-center gap-2">
-                <select
-                  className="h-8 rounded border bg-background px-2 text-sm"
-                  value={activePageId ?? ""}
-                  onChange={(e) => setActivePageId(e.target.value || null)}
-                >
-                  {pages.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => projectId && createPage.mutate({ projectId, name: `Page ${pages.length + 1}` })}
-                >
-                  <PlusIcon className="mr-1 h-3.5 w-3.5" /> New page
-                </Button>
-              </div>
             )}
-            <span className="ml-3 text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {saving === "saving" && (
                 <span className="inline-flex items-center gap-1"><LoaderIcon className="h-3 w-3 animate-spin" /> Saving…</span>
               )}
@@ -118,9 +110,8 @@ export default function DesignerPage() {
       {/* Content */}
       <div className="flex-1 overflow-hidden flex min-h-0">
         <div className="rounded-md border bg-white flex-1 h-full min-h-0">
-        <StudioEditor
-          className="h-full w-full"
-          options={{
+        <StudioEditor className='h-full w-full'
+      options={{
         licenseKey: process.env.GRAPEJS_LICENSE_KEY,
       theme: 'light',
       project: {
@@ -129,7 +120,7 @@ export default function DesignerPage() {
       assets: {
         storageType: 'self',
         // Provide a custom upload handler for assets
-        onUpload: async ({ files }: { files: File[] }) => {
+        onUpload: async ({ files }) => {
           const body = new FormData();
           for (const file of files) {
             body.append('files', file);
@@ -141,7 +132,7 @@ export default function DesignerPage() {
           return result;
         },
         // Provide a custom handler for deleting assets
-        onDelete: async ({ assets }: { assets: any[] }) => {
+        onDelete: async ({ assets }) => {
           const body = JSON.stringify(assets);
           await fetch('ASSETS_DELETE_URL', { method: 'DELETE', body });
         }
@@ -149,7 +140,7 @@ export default function DesignerPage() {
       storage: {
         type: 'self',
         // Provide a custom handler for saving the project data.
-        onSave: async ({ project }: { project: any }) => {
+        onSave: async ({ project }) => {
           throw new Error('Implement your "onSave"!');
           const body = new FormData();
           body.append('project', JSON.stringify(project));

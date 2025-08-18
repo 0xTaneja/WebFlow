@@ -4,17 +4,17 @@ import { isAuthed } from "../middleware/isAuthed"
 import { pageInput, projectIdOnlyInput, projectInput } from "../types/types"
 export const pagesRouter = router({
     getPages: publicProcedure
-      .use(isAuthed)
+              .use(isAuthed)
       .input(projectIdOnlyInput)
       .query(async ({ ctx, input }) => {
         const { projectId } = input
         // Ensure user is a member of this project
         const membership = await ctx.prisma.userProject.findUnique({
-          where: {
+                    where: {
             userId_projectId: {
               userId: ctx.user.id,
-              projectId,
-            },
+                        projectId,
+                    },
           },
         })
         if (!membership) {
@@ -28,14 +28,14 @@ export const pagesRouter = router({
       }),
     createPage: publicProcedure
       .use(isAuthed)
-      .input(projectInput)
+    .input(projectInput)
       .mutation(async ({ ctx, input }) => {
         const { projectId, name } = input
         const membership = await ctx.prisma.userProject.findUnique({
           where: {
             userId_projectId: {
               userId: ctx.user.id,
-              projectId,
+                projectId,
             },
           },
         })
@@ -53,7 +53,7 @@ export const pagesRouter = router({
       }),
     updateCanvasJson: publicProcedure
       .use(isAuthed)
-      .input(pageInput)
+    .input(pageInput)
       .mutation(async ({ ctx, input }) => {
         const { pageId, canvasJson } = input
 

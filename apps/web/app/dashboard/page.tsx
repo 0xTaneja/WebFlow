@@ -68,7 +68,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { type Site, SORTS, type SortKey } from "../../types/site"
+import { type Site, SORTS, type SortKey } from "../types/site"
 import { trpc } from "@/lib/trpc-client"
 
 export default function Dashboard() {

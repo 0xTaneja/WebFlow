@@ -28,14 +28,23 @@ export default function DesignerPage() {
     { projectId: projectId! },
     { enabled: Boolean(projectId) }
   );
-  // Page creation handled inside GrapesJS via listPages plugin; no external button
-  const updateCanvas = trpc.updateCanvasJson.useMutation({
-    onSuccess: () => {
-      setSaving("saved");
-      setTimeout(() => setSaving("idle"), 900);
+  
+  const utils = trpc.useUtils();
+  const createPage = trpc.createPage.useMutation({
+    onSuccess: (newPage) => {
+      utils.getPages.invalidate({ projectId: projectId! }); // refresh page list
+      setActivePageId(newPage.id); // set the new page as active
     },
-    onMutate: () => setSaving("saving"),
   });
+  const pages = (pagesQuery.data as any[]) || [];
+
+const updateCanvas = trpc.updateCanvasJson.useMutation({
+  onSuccess: () => {
+    setSaving("saved");
+    setTimeout(() => setSaving("idle"), 900);
+  },
+  onMutate: () => setSaving("saving"),
+});
 
   // Initialize active page once list fetched
   React.useEffect(() => {
@@ -51,35 +60,25 @@ export default function DesignerPage() {
     activePageIdRef.current = activePageId;
   }, [activePageId]);
 
-  // // Load project data into editor when page changes
   // React.useEffect(() => {
   //   const ed = editorRef.current;
   //   if (!ed || !activePageId) return;
-  //   const p = pagesQuery.data?.find((x: any) => x.id === activePageId);
-  //   const raw = p?.canvasJson ?? null;
-  //   if (raw && typeof raw === 'object' && Array.isArray((raw as any).pages) && (raw as any).pages.length === 0) {
-  //     // empty => reset editor with blank project structure
-  //     ed.loadProjectData?.(BLANK_PROJECT);
-  //     return;
+  
+  //   ed.loadProjectData?.({ project: {} }); // reset
+  
+  //   const p = pages.find((x) => x.id === activePageId);
+  //   if (p?.canvasJson) {
+  //     try {
+  //       ed.loadProjectData?.(p.canvasJson);
+  //     } catch (e) {
+  //       console.error("Error loading project data", e);
+  //     }
   //   }
-  //   let data: any = raw as any;
-  //   if (raw && typeof raw === 'object' && Array.isArray((raw as any).pages)) {
-  //     const r: any = raw as any;
-  //     data = {
-  //       ...r,
-  //       pages: r.pages.map((pg: any) => {
-  //         if (Array.isArray(pg.frames)) return pg;
-  //         if (typeof pg.component === 'string') return { ...pg, frames: [{ component: pg.component }] };
-  //         return pg;
-  //       }),
-  //     };
-  //   }
-  //   try {
-  //     ed.loadProjectData?.(data);
-  //   } catch {}
-  // }, [activePageId, pagesQuery.data]);
+  // }, [activePageId, pages]);
+  
 
-  const pages = (pagesQuery.data as any[]) || [];
+
+
 
   return (
     <div className="flex flex-col h-screen">
@@ -110,7 +109,9 @@ export default function DesignerPage() {
       {/* Content */}
       <div className="flex-1 overflow-hidden flex min-h-0">
         <div className="rounded-md border bg-white flex-1 h-full min-h-0">
-        <StudioEditor className='h-full w-full'
+      <StudioEditor className='h-full w-full'
+
+      ref={editorRef}
       options={{
         licenseKey: process.env.GRAPEJS_LICENSE_KEY,
       theme: 'light',
@@ -120,7 +121,7 @@ export default function DesignerPage() {
       assets: {
         storageType: 'self',
         // Provide a custom upload handler for assets
-        onUpload: async ({ files }) => {
+        onUpload: async ({ files }:{files:File[]}) => {
           const body = new FormData();
           for (const file of files) {
             body.append('files', file);
@@ -132,7 +133,7 @@ export default function DesignerPage() {
           return result;
         },
         // Provide a custom handler for deleting assets
-        onDelete: async ({ assets }) => {
+        onDelete: async ({ assets }:{assets:any}) => {
           const body = JSON.stringify(assets);
           await fetch('ASSETS_DELETE_URL', { method: 'DELETE', body });
         }
@@ -140,22 +141,25 @@ export default function DesignerPage() {
       storage: {
         type: 'self',
         // Provide a custom handler for saving the project data.
-        onSave: async ({ project }) => {
-          throw new Error('Implement your "onSave"!');
-          const body = new FormData();
-          body.append('project', JSON.stringify(project));
-          await fetch('PROJECT_SAVE_URL', { method: 'POST', body });
+        onSave: async ({ project }:{project:any}) => {
+
+          if (!activePageIdRef.current) return;
+          
+          await updateCanvas.mutateAsync({
+            pageId: activePageIdRef.current,
+            canvasJson: project
+          })
+          
         },
         // Provide a custom handler for loading project data.
         onLoad: async () => {
-          throw new Error('Implement your "onLoad"!');
-          const response = await fetch('PROJECT_LOAD_URL');
-          const project = await response.json();
-          // The project JSON is expected to be returned inside an object.
-          return { project };
+          if (!activePageIdRef.current) return { project: {} };
+          const allPages = await utils.getPages.fetch({ projectId: projectId! });
+          const p = allPages.find((x: any) => x.id === activePageIdRef.current);
+          return { project: p?.canvasJson || {} };
         },
         autosaveChanges: 100,
-        autosaveIntervalMs: 10000
+        autosaveIntervalMs: 15000
       },
       plugins: [
         flexComponent.init({ /* Plugin options: https://app.grapesjs.com/docs-sdk/plugins/components/flex */ }),
@@ -167,7 +171,18 @@ export default function DesignerPage() {
         canvasEmptyState.init({ /* Plugin options: https://app.grapesjs.com/docs-sdk/plugins/canvas/emptyState */ }),
         iconifyComponent.init({ /* Plugin options: https://app.grapesjs.com/docs-sdk/plugins/components/iconify */ }),
         accordionComponent.init({ /* Plugin options: https://app.grapesjs.com/docs-sdk/plugins/components/accordion */ }),
-        listPagesComponent.init({ /* Plugin options: https://app.grapesjs.com/docs-sdk/plugins/components/listPages */ }),
+        listPagesComponent.init({
+          onAdd: async (name: string) => {
+            const newPage = await createPage.mutateAsync({ projectId: projectId!, name });
+            await utils.getPages.invalidate({ projectId: projectId! }); // refetch pages
+            setActivePageId(newPage.id); // make new page active
+            return { id: newPage.id, name: newPage.name };
+          },
+         onSelect: (pageId: string) => {
+          setActivePageId(pageId);
+         },
+        
+        }),
         fsLightboxComponent.init({ /* Plugin options: https://app.grapesjs.com/docs-sdk/plugins/components/fslightbox */ }),
         layoutSidebarButtons.init({ /* Plugin options: https://app.grapesjs.com/docs-sdk/plugins/layout/sidebar-buttons */ }),
         youtubeAssetProvider.init({ /* Plugin options: https://app.grapesjs.com/docs-sdk/plugins/asset-providers/youtube-asset-provider */ }),

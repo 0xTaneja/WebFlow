@@ -1,3 +1,4 @@
+
 declare module '@grapesjs/studio-sdk' {
   const Studio: any;
   export = Studio;
@@ -12,5 +13,3 @@ declare module 'grapesjs-preset-webpage' {
   const plugin: any;
   export = plugin;
 }
-
-

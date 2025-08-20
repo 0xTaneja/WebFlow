@@ -11,14 +11,16 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "typeRoots": ["app/types", "./node_modules/@types"]
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     "next-env.d.ts",
     "next.config.js",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "app/types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules"

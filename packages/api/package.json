@@ -1,11 +1,17 @@
 {
-    "name":"@repo/api",
-    "version":"0.0.0",
-    "main":"dist/index.js",
-    "types":"dist/index.d.ts",
-    "private":true,
-    "files":["dist"],
-    "scripts":{
-        "build":"tsc -b"
+    "name": "@repo/api",
+    "version": "0.0.0",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "private": true,
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsc -b"
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.873.0",
+        "@aws-sdk/s3-presigned-post": "^3.873.0"
     }
 }

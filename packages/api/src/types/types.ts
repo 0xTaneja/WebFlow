@@ -28,3 +28,9 @@ export const pageInput = z.object({
     name: z.string().optional(),
     canvasJson:z.any()
 })
+
+export const assetInput = z.object({
+    projectId: z.string(),
+    fileName: z.string(),
+    type: z.string(),
+})

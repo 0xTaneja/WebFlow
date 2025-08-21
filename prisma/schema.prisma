@@ -123,7 +123,7 @@ model Asset {
   mimeType  String?
   width     Int?
   height    Int?
-
+  contentType String?
   createdAt DateTime @default(now())
 
   @@unique([projectId, key])

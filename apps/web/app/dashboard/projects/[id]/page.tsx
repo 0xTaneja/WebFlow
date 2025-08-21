@@ -142,21 +142,42 @@ React.useEffect(() => {
       assets: {
         storageType: 'self',
         // Provide a custom upload handler for assets
-        onUpload: async ({ files }:{files:File[]}) => {
-          const body = new FormData();
-          for (const file of files) {
-            body.append('files', file);
-          }
-          const response = await fetch('ASSETS_UPLOAD_URL', { method: 'POST', body });
-          const result = await response.json();
-          // The expected result should be an array of assets, eg.
-          // [{ src: 'ASSET_URL' }]
-          return result;
+        onUpload: async ({ files }: { files: File[] }) => {
+          const uploaded = await Promise.all(
+            files.map(async (file: File) => {
+              // 1. get presigned POST
+              const { presigned, key } = await (trpc as any).assets.getUploadUrl.mutate({
+                projectId: projectId!,
+                fileName: file.name,
+                type: file.type,
+              });
+
+              // 2. POST directly to R2
+              const formData = new FormData();
+              Object.entries(presigned.fields).forEach(([k, v]) => formData.append(k, v as string));
+              formData.append('Content-Type', file.type);
+              formData.append('file', file);
+              await fetch(presigned.url, { method: 'POST', body: formData });
+
+              // 3. confirm upload -> store DB row
+              const asset = await (trpc as any).assets.confirmUpload.mutate({
+                projectId: projectId!,
+                key,
+                type: file.type,
+              });
+
+              return { src: asset.url } as any;
+            })
+          );
+          return uploaded;
         },
         // Provide a custom handler for deleting assets
-        onDelete: async ({ assets }:{assets:any}) => {
-          const body = JSON.stringify(assets);
-          await fetch('ASSETS_DELETE_URL', { method: 'DELETE', body });
+        onDelete: async ({ assets }: { assets: any[] }) => {
+          await Promise.all(
+            assets.map((a: any) =>
+              (trpc as any).assets.delete.mutate({ id: a.id }).catch(() => {})
+            )
+          );
         }
       },
       storage: {

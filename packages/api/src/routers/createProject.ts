@@ -12,12 +12,21 @@ export const createProjectRouter = router({
        const project = await ctx.prisma.project.create({
          data:{
             name,
-            members:{create:{
+            members:{
+            create:{
                 userId:ctx.session.user.id,
                 role:'OWNER'
-            }}
+            }
+            },
+            pages:{
+                create:{
+                    name:'Home',
+                    canvasJson:{}
+                }
+            }
          },
-        
+
+         include: { pages: true },
        })
        return project;
     })

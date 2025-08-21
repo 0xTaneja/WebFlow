@@ -25,5 +25,6 @@ export const acceptInviteInput = z.object({
 
 export const pageInput = z.object({
     pageId: z.string(),
+    name: z.string().optional(),
     canvasJson:z.any()
 })

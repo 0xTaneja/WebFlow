@@ -82,5 +82,38 @@ export const pagesRouter = router({
           data: { canvasJson },
         })
       }),
+      updatePage: publicProcedure
+      .use(isAuthed)
+      .input(pageInput)
+      .mutation(async ({ctx,input})=>{
+        const {pageId,name} = input
+        const page = await ctx.prisma.page.findUnique({ where: { id: pageId } })
+        if (!page) throw new TRPCError({ code: "NOT_FOUND" })
+        const membership = await ctx.prisma.userProject.findUnique({
+          where: { userId_projectId: { userId: ctx.user.id, projectId: page.projectId } },
+        })
+
+        if (!membership) throw new TRPCError({ code: "FORBIDDEN" })
+
+        return ctx.prisma.page.update({
+            where: { id: pageId },
+            data: { name },
+          })
+      }),
+      deletePage: publicProcedure
+  .use(isAuthed)
+  .input(pageInput.pick({ pageId: true })) // or make a new schema for just pageId
+  .mutation(async ({ ctx, input }) => {
+    const { pageId } = input
+    const page = await ctx.prisma.page.findUnique({ where: { id: pageId } })
+    if (!page) throw new TRPCError({ code: "NOT_FOUND" })
+
+    const membership = await ctx.prisma.userProject.findUnique({
+      where: { userId_projectId: { userId: ctx.user.id, projectId: page.projectId } },
+    })
+    if (!membership) throw new TRPCError({ code: "FORBIDDEN" })
+
+    return ctx.prisma.page.delete({ where: { id: pageId } })
+  }),
 
 })

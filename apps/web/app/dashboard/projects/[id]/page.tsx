@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc-client";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus } from "lucide-react";
@@ -10,6 +10,7 @@ import "@grapesjs/studio-sdk/style";
 import { flexComponent, canvasFullSize, canvasGridMode, canvasEmptyState,rteProseMirror, tableComponent, swiperComponent, iconifyComponent, accordionComponent, listPagesComponent, fsLightboxComponent, layoutSidebarButtons, youtubeAssetProvider, lightGalleryComponent } from '@grapesjs/studio-sdk-plugins';
 import type { SVGProps } from "react";
 import type { FC } from "react";
+import { defaultIcons } from "@grapesjs/studio-sdk/dist/components/public/StudioIcon/index.js";
 const LoaderIcon = Loader2 as unknown as React.FC<SVGProps<SVGSVGElement>>;
 const PlusIcon = Plus as unknown as React.FC<SVGProps<SVGSVGElement>>;
 const StudioEditor = StudioEditorRaw as unknown as FC<any>;
@@ -46,35 +47,41 @@ const updateCanvas = trpc.updateCanvasJson.useMutation({
   onMutate: () => setSaving("saving"),
 });
 
-  // Initialize active page once list fetched
-  React.useEffect(() => {
-    const pages = pagesQuery.data;
-    if (!pages || pages.length === 0 || !projectId) return;
-    const first: any = pages[0];
-    if (!first) return;
-    setActivePageId((prev) => prev ?? first.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagesQuery.data, projectId]);
+const searchParams = useSearchParams();
+const pageIdFromUrl = searchParams.get("pageId");
+React.useEffect(() => {
+  if (pageIdFromUrl) {
+    setActivePageId(pageIdFromUrl);
+  } else if (pages.length > 0) {
+    setActivePageId(pages[0].id); // fallback
+  }
+}, [pageIdFromUrl, pages]);
 
   React.useEffect(() => {
     activePageIdRef.current = activePageId;
   }, [activePageId]);
 
-  // React.useEffect(() => {
-  //   const ed = editorRef.current;
-  //   if (!ed || !activePageId) return;
-  
-  //   ed.loadProjectData?.({ project: {} }); // reset
-  
-  //   const p = pages.find((x) => x.id === activePageId);
-  //   if (p?.canvasJson) {
-  //     try {
-  //       ed.loadProjectData?.(p.canvasJson);
-  //     } catch (e) {
-  //       console.error("Error loading project data", e);
-  //     }
-  //   }
-  // }, [activePageId, pages]);
+  // Load the correct canvas every time the active page changes
+  React.useEffect(() => {
+    const ed = editorRef.current;
+    if (!ed || !activePageId) return;
+
+    // Clear current canvas before loading the new one to avoid residual blocks
+    try {
+      ed.loadProjectData?.({ project: {} });
+    } catch (err) {
+      console.warn("Unable to reset editor project before loading", err);
+    }
+
+    const current = pages.find((p) => p.id === activePageId);
+    if (!current) return;
+
+    try {
+      ed.loadProjectData?.(current.canvasJson || {});
+    } catch (err) {
+      console.error("Error loading page canvas", err);
+    }
+  }, [activePageId, pages]);
   
 
 
@@ -116,7 +123,14 @@ const updateCanvas = trpc.updateCanvasJson.useMutation({
         licenseKey: process.env.GRAPEJS_LICENSE_KEY,
       theme: 'light',
       project: {
-        type: 'web'
+        type: 'web',
+        pages: pages.map((p, idx) => ({
+          id: p.id,
+          name: p.name,
+          component: 'page',
+        })),
+        default: pages[0]?.canvasJson 
+
       },
       assets: {
         storageType: 'self',
@@ -144,11 +158,10 @@ const updateCanvas = trpc.updateCanvasJson.useMutation({
         onSave: async ({ project }:{project:any}) => {
 
           if (!activePageIdRef.current) return;
-          
           await updateCanvas.mutateAsync({
             pageId: activePageIdRef.current,
-            canvasJson: project
-          })
+            canvasJson: project,
+          });
           
         },
         // Provide a custom handler for loading project data.
@@ -172,14 +185,31 @@ const updateCanvas = trpc.updateCanvasJson.useMutation({
         iconifyComponent.init({ /* Plugin options: https://app.grapesjs.com/docs-sdk/plugins/components/iconify */ }),
         accordionComponent.init({ /* Plugin options: https://app.grapesjs.com/docs-sdk/plugins/components/accordion */ }),
         listPagesComponent.init({
+          fetch: async () =>{
+            const allPages = await utils.getPages.fetch({ projectId: projectId! });
+            return allPages.map((p: any) => ({
+              id: p.id,
+              name: p.name 
+            }));
+          },
+          onRename : async (pageId:string,name:string)=>{
+            await (trpc.updatePage as any).mutateAsync({ pageId, name });
+            await utils.getPages.invalidate({ projectId: projectId! });
+          },
+          onDelete: async (pageId:string)=>{
+            await (trpc.deletePage as any).mutateAsync({ pageId });
+            await utils.getPages.invalidate({ projectId: projectId! });
+            setActivePageId(null);
+          },
           onAdd: async (name: string) => {
             const newPage = await createPage.mutateAsync({ projectId: projectId!, name });
             await utils.getPages.invalidate({ projectId: projectId! }); // refetch pages
             setActivePageId(newPage.id); // make new page active
             return { id: newPage.id, name: newPage.name };
           },
-         onSelect: (pageId: string) => {
+          onSelect: (pageId: string) => {
           setActivePageId(pageId);
+          router.push(`/designer/${projectId}?pageId=${pageId}`);
          },
         
         }),

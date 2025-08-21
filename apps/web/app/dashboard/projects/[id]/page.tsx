@@ -116,6 +116,13 @@ React.useEffect(() => {
       {/* Content */}
       <div className="flex-1 overflow-hidden flex min-h-0">
         <div className="rounded-md border bg-white flex-1 h-full min-h-0">
+
+      {/* Render editor only when pages are loaded to prevent fallback blank project */}
+      {pagesQuery.isLoading ? (
+        <div className="flex w-full h-full items-center justify-center text-sm text-muted-foreground">
+          <LoaderIcon className="h-4 w-4 animate-spin mr-2" /> Loading editor…
+        </div>
+      ) : (
       <StudioEditor className='h-full w-full'
 
       ref={editorRef}
@@ -220,6 +227,7 @@ React.useEffect(() => {
       ]
       }}
     />
+      )}
         </div>
       </div>
     </div>
